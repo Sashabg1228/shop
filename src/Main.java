@@ -4,8 +4,8 @@ public class Main {
 
         Shop shop = new Shop();
         shop.showProductList();
-/*        shop.filterProducts();
-        shop.searchProducts();
+        shop.filterProducts();
+/*        shop.searchProducts();
         shop.addProductToCart();
 */
     }

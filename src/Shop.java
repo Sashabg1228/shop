@@ -215,19 +215,10 @@ public class Shop {
             return;
         }
 
-        System.out.println("Enter color(from the list or error):");
-        String color = scanner.nextLine();
-        color = MySQLdb.checkColor(color.toUpperCase());
-        if (color.equals("--")) {
-            System.out.println("I told you. ERROR.");
-            scanner.close();
-            return;
-        }
-
         System.out.println("Enter info:");
         String info = scanner.nextLine();
 
-        MySQLdb.uploadProduct(name, price, quantity, weight, category, color, info);
+        MySQLdb.uploadProduct(name, price, quantity, weight, category, info);
 
         scanner.close();
     }
@@ -299,19 +290,6 @@ public class Shop {
             }
         }
 
-        System.out.println("Do you want to edit the color? Y/N");
-        choice = scanner.nextLine();
-        if (choice.equals("Y") || choice.equals("y")) {
-            MySQLdb.showColor();
-            System.out.println("Enter new color(from the list or error):");
-            String in = MySQLdb.checkColor(scanner.nextLine().toUpperCase());
-            if (in.equals("--")) {
-                System.out.println("I told you. ERROR.");
-            } else {
-                product.setColorCode(in);
-            }
-        }
-
         System.out.println("Do you want to edit the info? Y/N");
         choice = scanner.nextLine();
         if (choice.equals("Y") || choice.equals("y")) {
@@ -373,17 +351,7 @@ public class Shop {
             category = MySQLdb.checkCategory(category.toUpperCase());
         }
 
-        System.out.println("Do you want to add color limit? Y/N");
-        choice = scanner.nextLine();
-        String color = "--";
-        if (choice.equals("Y") || choice.equals("y")) {
-            MySQLdb.showColor();
-            System.out.println("Enter color(from the list or error):");
-            color = scanner.nextLine();
-            color = MySQLdb.checkColor(color.toUpperCase());
-        }
-
-        MySQLdb.filterProducts(lowPrice, highPrice, lowQuantity, highQuantity, lowWeight, highWeight, category, color);
+        MySQLdb.filterProducts(lowPrice, highPrice, lowQuantity, highQuantity, lowWeight, highWeight, category);
         scanner.close();
     }
 

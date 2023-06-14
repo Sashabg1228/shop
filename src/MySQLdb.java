@@ -85,15 +85,8 @@ public class MySQLdb {
             statement.execute(mysql);
 
             mysql = """
-                    CREATE TABLE category (
+                    CREATE TABLE categories (
                       code VARCHAR(3) NOT NULL PRIMARY KEY,
-                      name VARCHAR(15) NOT NULL
-                    );""";
-            statement.execute(mysql);
-
-            mysql = """
-                    CREATE TABLE color (
-                    	code VARCHAR(3) NOT NULL PRIMARY KEY,
                       name VARCHAR(15) NOT NULL
                     );""";
             statement.execute(mysql);
@@ -106,15 +99,13 @@ public class MySQLdb {
                       quantity INTEGER NOT NULL,
                       weight NUMERIC(6,3) NOT NULL,
                       categoryCode VARCHAR(3) NOT NULL,
-                      colorCode VARCHAR(3) NOT NULL,
                       info VARCHAR(200),
-                      FOREIGN KEY(categoryCode) REFERENCES category(code) ON DELETE CASCADE,
-                      FOREIGN KEY(colorCode) REFERENCES color(code) ON DELETE CASCADE
+                      FOREIGN KEY(categoryCode) REFERENCES categories(code) ON DELETE CASCADE
                     );""";
             statement.execute(mysql);
 
             mysql = """
-                    CREATE TABLE status (
+                    CREATE TABLE statuses (
                       code VARCHAR(1) NOT NULL PRIMARY KEY,
                       name VARCHAR(9)
                     );""";
@@ -129,7 +120,7 @@ public class MySQLdb {
                       statusCode VARCHAR(1) NOT NULL,
                       FOREIGN KEY(customerID) REFERENCES customers(id) ON DELETE CASCADE,
                       FOREIGN KEY(addressID) REFERENCES addresses(id),
-                      FOREIGN KEY(statusCode) REFERENCES status(code)
+                      FOREIGN KEY(statusCode) REFERENCES statuses(code)
                     );""";
             statement.execute(mysql);
 
@@ -250,7 +241,7 @@ public class MySQLdb {
 
             connect.setAutoCommit(false);
 
-            preparedStatement = connect.prepareStatement("SELECT category.name FROM category;");
+            preparedStatement = connect.prepareStatement("SELECT categories.name FROM categories;");
             resultSet = preparedStatement.executeQuery();
 
             System.out.print("category list: ");
@@ -270,33 +261,6 @@ public class MySQLdb {
         }
     }
 
-    public static void showColor() {
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            connect = DriverManager.getConnection(url, username, password);
-
-            connect.setAutoCommit(false);
-
-            preparedStatement = connect.prepareStatement("SELECT color.name FROM color;");
-            resultSet = preparedStatement.executeQuery();
-
-            System.out.print("color list: ");
-            while (resultSet.next()) {
-                String name = resultSet.getString("name");
-
-                System.out.print(" " + name + ";");
-
-            }
-            System.out.println();
-
-            connect.commit();
-        } catch (Exception e) {
-            System.out.println("Show Color exception: " + e);
-        } finally {
-            close();
-        }
-    }
-
     public static void showProducts() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -305,12 +269,10 @@ public class MySQLdb {
             connect.setAutoCommit(false);
 
             String mysql = """
-                    SELECT products.name, products.price, products.quantity, products.weight, category.name, color.name, products.info
+                    SELECT products.name, products.price, products.quantity, products.weight, categories.name, products.info
                     FROM products
-                    LEFT JOIN category
-                    ON products.categoryCode = category.code
-                    LEFT JOIN color
-                    ON products.colorCode = color.code;
+                    LEFT JOIN categories
+                    ON products.categoryCode = categories.code
                     """;
 
             preparedStatement = connect.prepareStatement(mysql);
@@ -321,8 +283,7 @@ public class MySQLdb {
                 double price = resultSet.getDouble("price");
                 int quantity = resultSet.getInt("quantity");
                 double weight = resultSet.getDouble("weight");
-                String category = resultSet.getString("category.name");
-                String color = resultSet.getString("color.name");
+                String category = resultSet.getString("categories.name");
                 String info = resultSet.getString("info");
 
                 System.out.println("name: " + name);
@@ -330,7 +291,6 @@ public class MySQLdb {
                 System.out.println("quantity: " + quantity);
                 System.out.println("weight: " + weight);
                 System.out.println("category: " + category);
-                System.out.println("color: " + color);
                 System.out.println("info: " + info);
                 System.out.println();
             }
@@ -374,18 +334,10 @@ public class MySQLdb {
         uploadCategory("L", "LAPTOP");
         uploadCategory("OTH", "OTHER");
 
-        uploadColor("Y", "YELLOW");
-        uploadColor("P", "PINK");
-        uploadColor("V", "VIOLET");
-        uploadColor("G", "GREEN");
-        uploadColor("R", "RED");
-        uploadColor("B", "BLACK");
-        uploadColor("W", "WHITE");
-
-        uploadProduct("Red pen", 2.5, 15, 0.1, "P", "R", "for teachers");
-        uploadProduct("Green pen", 2, 20, 0.1, "P", "G", "for principals");
-        uploadProduct("Samsung S3 mini", 200, 5, 0.330, "PH", "B", "Black Samsung S3 mini");
-        uploadProduct("Nigga dad", 1000, 2, 65, "OTH", "B", "Best workers");
+        uploadProduct("Red pen", 2.5, 15, 0.1, "P", "for teachers");
+        uploadProduct("Green pen", 2, 20, 0.1, "P", "for principals");
+        uploadProduct("Samsung S3 mini", 200, 5, 0.330, "PH", "Black Samsung S3 mini");
+        uploadProduct("Nigga dad", 1000, 2, 65, "OTH", "Best workers");
     }
 
     public static void uploadCoutry(final String countryCode, final String countryName,
@@ -476,7 +428,7 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            String mysql = "INSERT INTO status (code, name) VALUES (?, ?)";
+            String mysql = "INSERT INTO statuses (code, name) VALUES (?, ?)";
             preparedStatement = connect.prepareStatement(mysql);
             preparedStatement.setString(1, statusCode);
             preparedStatement.setString(2, statusName);
@@ -499,7 +451,7 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            String mysql = "INSERT INTO category (code, name) VALUES (?, ?)";
+            String mysql = "INSERT INTO categories (code, name) VALUES (?, ?)";
             preparedStatement = connect.prepareStatement(mysql);
             preparedStatement.setString(1, categoryCode);
             preparedStatement.setString(2, categoryName);
@@ -508,29 +460,6 @@ public class MySQLdb {
             connect.commit();
         } catch (Exception e) {
             System.out.println("Upload Category exception: " + e);
-        } finally {
-            close();
-        }
-    }
-
-    public static void uploadColor(final String colorCode, final String colorName) {
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            connect = DriverManager.getConnection(url, username, password);
-
-            connect.setAutoCommit(false);
-
-            statement = connect.createStatement();
-
-            String mysql = "INSERT INTO color (code, name) VALUES (?, ?)";
-            preparedStatement = connect.prepareStatement(mysql);
-            preparedStatement.setString(1, colorCode);
-            preparedStatement.setString(2, colorName);
-            preparedStatement.executeUpdate();
-
-            connect.commit();
-        } catch (Exception e) {
-            System.out.println("Upload Color exception: " + e);
         } finally {
             close();
         }
@@ -564,7 +493,7 @@ public class MySQLdb {
     }
 
     public static void uploadProduct(final String name, final double price, final int quantity, final double weight,
-                                     final String categoryCode, final String colorCode, final String info) {
+                                     final String categoryCode, final String info) {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             connect = DriverManager.getConnection(url, username, password);
@@ -573,7 +502,7 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            String mysql = "INSERT INTO products (name, price, quantity, weight, categoryCode, colorCode, info) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String mysql = "INSERT INTO products (name, price, quantity, weight, categoryCode, info) VALUES (?, ?, ?, ?, ?, ?)";
             preparedStatement = connect.prepareStatement(mysql);
 
             preparedStatement.setString(1, name);
@@ -581,8 +510,7 @@ public class MySQLdb {
             preparedStatement.setInt(3, quantity);
             preparedStatement.setDouble(4, weight);
             preparedStatement.setString(5, categoryCode);
-            preparedStatement.setString(6, colorCode);
-            preparedStatement.setString(7, info);
+            preparedStatement.setString(6, info);
 
             preparedStatement.executeUpdate();
             connect.commit();
@@ -696,42 +624,6 @@ public class MySQLdb {
             connect.commit();
         } catch (Exception e) {
             System.out.println("Check Category exception: " + e);
-        } finally {
-            close();
-        }
-
-        return result;
-    }
-
-    public static String checkColor(final String colorName) {
-        String result = "--"; // -- = not found, else id
-
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            connect = DriverManager.getConnection(url, username, password);
-
-            connect.setAutoCommit(false);
-
-            statement = connect.createStatement();
-
-            System.out.println("?");
-
-            String mysql = """
-                    SELECT color.code
-                    FROM color
-                    WHERE color.name = ?;
-                    """;
-            preparedStatement = connect.prepareStatement(mysql);
-            preparedStatement.setString(1, colorName);
-            resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                result = resultSet.getString("code");
-            }
-
-            connect.commit();
-        } catch (Exception e) {
-            System.out.println("Check Color exception: " + e);
         } finally {
             close();
         }
@@ -890,7 +782,6 @@ public class MySQLdb {
                 result.setQuantity(resultSet.getInt("quantity"));
                 result.setWeight(resultSet.getDouble("weight"));
                 result.setCategoryCode(resultSet.getString("categoryCode"));
-                result.setColorCode(resultSet.getString("colorCode"));
                 result.setInfo(resultSet.getString("info"));
             }
 
@@ -980,7 +871,7 @@ public class MySQLdb {
 
             String mysql = """
                     UPDATE products
-                    SET products.name = ?, products.price = ?, products.quantity = ?, products.weight = ?, products.categoryCode, products.colorCode = ?, products.info = ?
+                    SET products.name = ?, products.price = ?, products.quantity = ?, products.weight = ?, products.categoryCode, products.info = ?
                     WHERE products.id = ?;
                     """;
             preparedStatement = connect.prepareStatement(mysql);
@@ -989,9 +880,8 @@ public class MySQLdb {
             preparedStatement.setInt(3, product.getQuantity());
             preparedStatement.setDouble(4, product.getWeight());
             preparedStatement.setString(5, product.getCategoryCode());
-            preparedStatement.setString(6, product.getColorCode());
-            preparedStatement.setString(7, product.getInfo());
-            preparedStatement.setInt(8, product.getID());
+            preparedStatement.setString(6, product.getInfo());
+            preparedStatement.setInt(7, product.getID());
 
             preparedStatement.executeUpdate();
 
@@ -1005,7 +895,7 @@ public class MySQLdb {
 
     public static void filterProducts(final double lowPrice, final double highPrice,
                                       final int lowQuantity, final int highQuantity, final double lowWeight, final double highWeight,
-                                      final String categoryCode, final String colorCode) {
+                                      final String categoryCode) {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             connect = DriverManager.getConnection(url, username, password);
@@ -1017,12 +907,12 @@ public class MySQLdb {
             System.out.println("?");
 
             String mysql = _makeSQLforFilerProducts(lowPrice, highPrice, lowQuantity, highQuantity, lowWeight, highWeight,
-                    categoryCode, colorCode);
+                    categoryCode);
 
             preparedStatement = connect.prepareStatement(mysql);
 
             _setParametersForFilerProducts(preparedStatement, lowPrice, highPrice, lowQuantity, highQuantity, lowWeight,
-                    highWeight, categoryCode, colorCode);
+                    highWeight, categoryCode);
 
             resultSet = preparedStatement.executeQuery();
 
@@ -1031,8 +921,7 @@ public class MySQLdb {
                 double price = resultSet.getDouble("price");
                 int quantity = resultSet.getInt("quantity");
                 double weight = resultSet.getDouble("weight");
-                String category = resultSet.getString("category.name");
-                String color = resultSet.getString("color.name");
+                String category = resultSet.getString("categories.name"); //categories
                 String info = resultSet.getString("info");
 
                 System.out.println("name: " + name);
@@ -1040,7 +929,6 @@ public class MySQLdb {
                 System.out.println("quantity: " + quantity);
                 System.out.println("weight: " + weight);
                 System.out.println("category: " + category);
-                System.out.println("color: " + color);
                 System.out.println("info: " + info);
                 System.out.println();
             }
@@ -1056,52 +944,43 @@ public class MySQLdb {
 
     private static String _makeSQLforFilerProducts(final double lowPrice, final double highPrice,
                                                    final int lowQuantity, final int highQuantity, final double lowWeight, final double highWeight,
-                                                   final String categoryCode, final String colorCode) {
+                                                   final String categoryCode) {
         boolean moreThanOne = false;
 
         String result = """
-                SELECT products.name, products.price, products.quantity, products.weight, category.code, color.name, products.info
+                SELECT products.name, products.price, products.quantity, products.weight, categories.code, products.info
                 FROM products
-                LEFT JOIN category
-                ON products.categoryCode = category.code
-                LEFT JOIN color
-                ON products.colorCode = color.code
-                WHERE """;
+                LEFT JOIN categories
+                ON products.categoryCode = categories.code
+                WHERE""";
 
         if (lowPrice != highPrice) {
-            result += "product.price >= ? AND product.price <= ? ";
+            result += " products.price >= ? AND products.price <= ?";
             moreThanOne = true;
         }
 
         if (lowQuantity != highQuantity) {
             if (moreThanOne) {
-                result += "AND ";
+                result += " AND";
             }
             moreThanOne = true;
-            result += "product.quantity >= ? AND product.quantity <= ? ";
+            result += " products.quantity >= ? AND products.quantity <= ?";
         }
 
         if (lowWeight != highWeight) {
             if (moreThanOne) {
-                result += "AND ";
+                result += " AND";
             }
             moreThanOne = true;
-            result += "product.weight >= ? AND product.weight <= ? ";
+            result += " products.weight >= ? AND products.weight <= ?";
         }
 
         if (!(categoryCode.equals("--"))) {
             if (moreThanOne) {
-                result += "AND ";
+                result += " AND";
             }
             moreThanOne = true;
-            result += "product.categoryCode = ? ";
-        }
-
-        if (!(colorCode.equals("--"))) {
-            if (moreThanOne) {
-                result += "AND ";
-            }
-            result += "product.colorCode = ? ";
+            result += " products.categoryCode = ?";
         }
 
         return result + ";";
@@ -1109,7 +988,7 @@ public class MySQLdb {
 
     private static void _setParametersForFilerProducts(final PreparedStatement prep,
                                                        final double lowPrice, final double highPrice, final int lowQuantity, final int highQuantity,
-                                                       final double lowWeight, final double highWeight, final String categoryCode, final String colorCode)
+                                                       final double lowWeight, final double highWeight, final String categoryCode)
             throws Exception {
         int position = 1;
 
@@ -1138,10 +1017,6 @@ public class MySQLdb {
             prep.setString(position, categoryCode);
             position++;
         }
-
-        if (!(colorCode.equals("--"))) {
-            prep.setString(position, colorCode);
-        }
     }
 
     public static void searchProducts(final String search) {
@@ -1156,12 +1031,10 @@ public class MySQLdb {
             System.out.println("?");
 
             String mysql = """
-                    SELECT products.name, products.price, products.quantity, products.weight, category.code, color.name, products.info
+                    SELECT products.name, products.price, products.quantity, products.weight, category.code, products.info
                     FROM products
                     LEFT JOIN category
                     ON products.categoryCode = category.code
-                    LEFT JOIN color
-                    ON products.colorCode = color.code
                     WHERE products.name LIKE '%?%' OR products.info LIKE '%?%';
                     """;
 
@@ -1178,7 +1051,6 @@ public class MySQLdb {
                 int quantity = resultSet.getInt("quantity");
                 double weight = resultSet.getDouble("weight");
                 String category = resultSet.getString("category.name");
-                String color = resultSet.getString("color.name");
                 String info = resultSet.getString("info");
 
                 System.out.println("name: " + name);
@@ -1186,7 +1058,6 @@ public class MySQLdb {
                 System.out.println("quantity: " + quantity);
                 System.out.println("weight: " + weight);
                 System.out.println("category: " + category);
-                System.out.println("color: " + color);
                 System.out.println("info: " + info);
                 System.out.println();
             }
