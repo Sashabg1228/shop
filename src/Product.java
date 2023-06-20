@@ -5,7 +5,6 @@ public class Product {
   private int quantity;
   private double weight;
   private String categoryCode;
-  private String colorCode;
   private String info;
 
   public Product() {
@@ -58,14 +57,6 @@ public class Product {
 
   public void setCategoryCode(final String categoryCode) {
     this.categoryCode = categoryCode;
-  }
-
-  public String getColorCode() {
-    return this.colorCode;
-  }
-
-  public void setColorCode(final String colorCode) {
-    this.colorCode = colorCode;
   }
 
   public String getInfo() {

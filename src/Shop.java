@@ -1,15 +1,18 @@
 import java.util.ArrayList;
+import java.sql.Date;
 import java.util.Scanner;
 
 public class Shop {
     private Customer activeUser; // -1 = guest
     private ArrayList<Product> basket;
     private ArrayList<Integer> quantities;
+    private static Scanner scanner;
 
     public Shop() {
         this.activeUser = new Customer();
         this.basket = new ArrayList<>();
         this.quantities = new ArrayList<>();
+        scanner = new Scanner(System.in);
     }
 
     /*
@@ -17,8 +20,6 @@ public class Shop {
      * добави новия клиент към списъка с клиенти.
      */
     public void registerCustomer() {
-        Scanner scanner = new Scanner(System.in);
-
         System.out.println("Enter username:");
         String username = scanner.nextLine();
 
@@ -38,7 +39,6 @@ public class Shop {
         country = MySQLdb.checkCountry(country.toUpperCase());
         if (country.equals("--")) {
             System.out.println("I told you. ERROR.");
-            scanner.close();
             return;
         }
 
@@ -52,8 +52,6 @@ public class Shop {
         Address ad = MySQLdb.loadAddress(country, city, street);
 
         MySQLdb.uploadCustomer(username, password, firstName, lastName, ad.getID());
-
-        scanner.close();
     }
 
     /*
@@ -62,8 +60,6 @@ public class Shop {
      * с тези имена.
      */
     public void login() {
-        Scanner scanner = new Scanner(System.in);
-
         System.out.println("Enter username:");
         String username = scanner.nextLine();
 
@@ -71,8 +67,6 @@ public class Shop {
         String password = scanner.nextLine();
 
         this.activeUser = MySQLdb.loadCustomer(username, password);
-
-        scanner.close();
     }
 
     /*
@@ -91,8 +85,6 @@ public class Shop {
             System.out.println("Cannot edit guest. ERROR.");
             return;
         }
-
-        Scanner scanner = new Scanner(System.in);
 
         System.out.println("Do you want to edit the username? Y/N");
         String choice = scanner.nextLine();
@@ -130,12 +122,10 @@ public class Shop {
         }
 
         MySQLdb.editCustomer(this.activeUser);
-        scanner.close();
     }
 
     private void addressEditor() {
         Address activeUserAddress = MySQLdb.loadAddress(this.activeUser.getAddressID());
-        Scanner scanner = new Scanner(System.in);
 
         System.out.println("Do you want to edit the city? Y/N");
         String choice = scanner.nextLine();
@@ -168,7 +158,6 @@ public class Shop {
         }
 
         MySQLdb.editAddress(activeUserAddress);
-        scanner.close();
     }
 
     /*
@@ -192,8 +181,6 @@ public class Shop {
      * посочения артикул трябва да се увеличи.
      */
     public void addProduct() {
-        Scanner scanner = new Scanner(System.in);
-
         System.out.println("Enter name:");
         String name = scanner.nextLine();
 
@@ -211,7 +198,6 @@ public class Shop {
         category = MySQLdb.checkCategory(category.toUpperCase());
         if (category.equals("--")) {
             System.out.println("I told you. ERROR.");
-            scanner.close();
             return;
         }
 
@@ -219,17 +205,12 @@ public class Shop {
         String info = scanner.nextLine();
 
         MySQLdb.uploadProduct(name, price, quantity, weight, category, info);
-
-        scanner.close();
     }
 
     private Product selectProduct() {
-        Scanner scanner = new Scanner(System.in);
-
         System.out.println("Which product do you want to select?(name)");
         String name = scanner.nextLine();
 
-        scanner.close();
         return MySQLdb.loadProduct(name);
     }
 
@@ -247,7 +228,6 @@ public class Shop {
      */
     public void editProduct() {
         Product product = selectProduct();
-        Scanner scanner = new Scanner(System.in);
 
         System.out.println("Do you want to edit the name? Y/N");
         String choice = scanner.nextLine();
@@ -298,7 +278,6 @@ public class Shop {
         }
 
         MySQLdb.editProduct(product);
-        scanner.close();
     }
 
     /*
@@ -312,8 +291,6 @@ public class Shop {
      * filterItems() - търси продукти по зададените филтри и връща всички, отговарящи им.
      */
     public void filterProducts() {
-        Scanner scanner = new Scanner(System.in);
-
         System.out.println("Do you want to add price limits? Y/N");
         String choice = scanner.nextLine();
         double lowPrice = 0, highPrice = 0;
@@ -352,17 +329,13 @@ public class Shop {
         }
 
         MySQLdb.filterProducts(lowPrice, highPrice, lowQuantity, highQuantity, lowWeight, highWeight, category);
-        scanner.close();
     }
 
     public void searchProducts() {
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.println("Serach:");
+        System.out.println("Search:");
         String search = scanner.nextLine();
 
         MySQLdb.searchProducts(search);
-        scanner.close();
     }
 
     /*
@@ -380,19 +353,22 @@ public class Shop {
      */
     public void addProductToCart() {
         Product product = selectProduct();
+        System.out.println("product price: " + product.getPrice());
 
-        Scanner scanner = new Scanner(System.in);
         System.out.println("What quantity of this product do you want to add to the basket?");
         int in = Integer.parseInt(scanner.nextLine());
-        scanner.close();
 
         if (MySQLdb.availableQuantity(product) - in < 0) {
             System.out.println("Not enough quantity of this product. ERROR");
             return;
         }
 
+        product.setQuantity(product.getQuantity() - in);
+        MySQLdb.editProduct(product);
+
         this.quantities.add(in);
         this.basket.add(product);
+        System.out.println("Ready");
     }
 
     /*
@@ -411,14 +387,20 @@ public class Shop {
             return;
         }
 
-        Scanner scanner = new Scanner(System.in);
         System.out.println("Phone number for the order:");
         String in = scanner.nextLine();
-        scanner.close();
 
-        for (int i = 0; i < basket.size(); i++) {
-            MySQLdb.uploadOrder(this.activeUser.getID(), this.activeUser.getAddressID(), in, "O");
+        int orderID = MySQLdb.uploadOrder(this.activeUser.getID(), this.activeUser.getAddressID(), in);
+        for (int i = 0; i < this.basket.size(); i++) {
+            MySQLdb.uploadOrderedProduct(orderID, this.basket.get(i).getID(), this.quantities.get(i));
         }
+    }
+
+    /*
+     * showTurnover(startDate, endDate) - показва направения оборот за периода startDate-endDate
+     */
+    public void  showTurnover(Date startDate, Date endDate){
+        MySQLdb.showTurnoverForPeriod(startDate, endDate);
     }
 }
 
@@ -433,5 +415,4 @@ public class Shop {
  * completeOrder(ID) - променя статус на поръчката на Completed.
  *
  * failOrder(ID) - променя статус на поръчката на Failed.
- *
  */

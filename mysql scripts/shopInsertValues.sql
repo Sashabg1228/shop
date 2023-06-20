@@ -40,3 +40,4 @@ INSERT INTO statuses (code, name) VALUES
 ('C', 'COMPLETED'),
 ('F', 'FAILED');
 
+INSERT INTO orders (customerID, addressID, phone, creationDate, statusCode) VALUES (1, 1, '0898517008', NOW(), 'O');

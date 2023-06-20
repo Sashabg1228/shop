@@ -3,6 +3,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.Date;
 
 public class MySQLdb {
     private static final String url = "jdbc:mysql://localhost:3306/shop";
@@ -53,16 +54,30 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            String mysql = """
+            initializeTables();
+            initializeFunctions();
+            initializeHistoryTables();
+            System.out.println("All initialized");
+
+            connect.commit();
+        } catch (Exception e) {
+            System.out.println("Initialize Data Base exception: " + e);
+        } finally {
+            close();
+        }
+    }
+
+    public static void initializeTables() throws Exception {
+        String mysql = """
                     CREATE TABLE countries (
                       code VARCHAR(2) NOT NULL PRIMARY KEY,
                       name VARCHAR(56) NOT NULL,
                       location boolean NOT NULL,
                       allowed boolean NOT NULL
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE addresses (
                       id INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
                       countryCode VARCHAR(2) NOT NULL,
@@ -70,9 +85,9 @@ public class MySQLdb {
                       street VARCHAR(50) NOT NULL,
                       FOREIGN KEY(countryCode) REFERENCES countries(code)
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE customers (
                       id INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
                       username VARCHAR(25) NOT NULL,
@@ -82,16 +97,16 @@ public class MySQLdb {
                       addressID INTEGER NOT NULL,
                       FOREIGN KEY(addressID) REFERENCES addresses(id) ON DELETE CASCADE
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE categories (
                       code VARCHAR(3) NOT NULL PRIMARY KEY,
                       name VARCHAR(15) NOT NULL
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE products (
                       id INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
                       name VARCHAR(100) NOT NULL,
@@ -102,29 +117,30 @@ public class MySQLdb {
                       info VARCHAR(200),
                       FOREIGN KEY(categoryCode) REFERENCES categories(code) ON DELETE CASCADE
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE statuses (
                       code VARCHAR(1) NOT NULL PRIMARY KEY,
                       name VARCHAR(9)
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE orders (
                       id INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
                       customerID INTEGER NOT NULL,
                       addressID INTEGER NOT NULL,
                       phone VARCHAR(10) NOT NULL,
+                      creationDate DATETIME NOT NULL,
                       statusCode VARCHAR(1) NOT NULL,
                       FOREIGN KEY(customerID) REFERENCES customers(id) ON DELETE CASCADE,
                       FOREIGN KEY(addressID) REFERENCES addresses(id),
                       FOREIGN KEY(statusCode) REFERENCES statuses(code)
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
 
-            mysql = """
+        mysql = """
                     CREATE TABLE orderedProducts (
                       id INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
                       orderID INTEGER NOT NULL,
@@ -133,14 +149,242 @@ public class MySQLdb {
                       FOREIGN KEY(orderID) REFERENCES orders(id) ON DELETE CASCADE,
                       FOREIGN KEY(productID) REFERENCES products(id) ON DELETE CASCADE
                     );""";
-            statement.execute(mysql);
+        statement.execute(mysql);
+    }
 
-            connect.commit();
-        } catch (Exception e) {
-            System.out.println("Initialize Data Base exception: " + e);
-        } finally {
-            close();
-        }
+    public static void initializeFunctions() throws Exception {
+        String mysql = """
+                    CREATE FUNCTION createOrder (customerID INTEGER, addressID INTEGER, phone VARCHAR(10))
+                    RETURNS INTEGER
+                    DETERMINISTIC
+                    BEGIN
+                        DECLARE orderID INTEGER;
+                        INSERT INTO orders (customerID, addressID, phone, creationDate, statusCode)
+                        VALUES (customerID, addressID, phone, NOW(), 'O');
+                        SET orderID = LAST_INSERT_ID();
+                        RETURN orderID;
+                    END
+                    """;
+
+        statement.execute(mysql);
+    }
+
+    public static void initializeHistoryTables() throws Exception {
+        String mysql = """
+                CREATE TABLE H_addresses (
+                  UID INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
+                  BeginDate DATETIME NOT NULL,
+                  EndDate DATETIME,
+                  id INTEGER NOT NULL,
+                  countryCode VARCHAR(2) NOT NULL,
+                  city VARCHAR(25) NOT NULL,
+                  street VARCHAR(50) NOT NULL
+                );
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Addresses_AI_Hist AFTER INSERT ON addresses FOR EACH ROW
+                BEGIN
+                  INSERT INTO H_addresses VALUES(NULL, NOW(), NULL, NEW.id, NEW.countryCode, NEW.city, NEW.street);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Addresses_AU_Hist AFTER UPDATE ON addresses FOR EACH ROW
+                BEGIN
+                  UPDATE H_addresses SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                  
+                  INSERT INTO H_addresses VALUES(NULL, NOW(), NULL, NEW.id, NEW.countryCode, NEW.city, NEW.street);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Addresses_AD_Hist AFTER DELETE ON addresses FOR EACH ROW
+                BEGIN
+                  UPDATE H_addresses SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                END
+                """;
+        statement.execute(mysql);
+
+        //////////////////// customers ////////////////////
+
+        mysql = """
+                    CREATE TABLE H_customers (
+                      UID INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
+                      BeginDate DATETIME NOT NULL,
+                      EndDate DATETIME,
+                      id INTEGER NOT NULL,
+                      username VARCHAR(25) NOT NULL,
+                      password VARCHAR(25) NOT NULL,
+                      firstName VARCHAR(25) NOT NULL,
+                      lastName VARCHAR(25) NOT NULL,
+                      addressID INTEGER NOT NULL
+                    );""";
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Customers_AI_Hist AFTER INSERT ON customers FOR EACH ROW
+                BEGIN
+                  INSERT INTO H_customers VALUES(NULL, NOW(), NULL, NEW.id, NEW.username, NEW.password, NEW.firstName, NEW.lastName, NEW.addressID);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Customers_AU_Hist AFTER UPDATE ON customers FOR EACH ROW
+                BEGIN
+                  UPDATE H_customers SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                  
+                  INSERT INTO H_customers VALUES(NULL, NOW(), NULL, NEW.id, NEW.username, NEW.password, NEW.firstName, NEW.lastName, NEW.addressID);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Customers_AD_Hist AFTER DELETE ON customers FOR EACH ROW
+                BEGIN
+                  UPDATE H_customers SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                END
+                """;
+        statement.execute(mysql);
+
+        //////////////////// products ////////////////////
+
+        mysql = """
+                    CREATE TABLE H_products (
+                      UID INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
+                      BeginDate DATETIME NOT NULL,
+                      EndDate DATETIME,
+                      id INTEGER NOT NULL,
+                      name VARCHAR(100) NOT NULL,
+                      price NUMERIC(6,2) NOT NULL,
+                      quantity INTEGER NOT NULL,
+                      weight NUMERIC(6,3) NOT NULL,
+                      categoryCode VARCHAR(3) NOT NULL,
+                      info VARCHAR(200)
+                    );""";
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Products_AI_Hist AFTER INSERT ON products FOR EACH ROW
+                BEGIN
+                  INSERT INTO H_products VALUES(NULL, NOW(), NULL, NEW.id, NEW.name, NEW.price, NEW.quantity, NEW.weight, NEW.categoryCode, NEW.info);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Products_AU_Hist AFTER UPDATE ON products FOR EACH ROW
+                BEGIN
+                  UPDATE H_products SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                  
+                  INSERT INTO H_products VALUES(NULL, NOW(), NULL, NEW.id, NEW.name, NEW.price, NEW.quantity, NEW.weight, NEW.categoryCode, NEW.info);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Products_AD_Hist AFTER DELETE ON products FOR EACH ROW
+                BEGIN
+                  UPDATE H_products SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                END
+                """;
+        statement.execute(mysql);
+
+        //////////////////// orders ////////////////////
+
+        mysql = """
+                    CREATE TABLE H_orders (
+                      UID INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
+                      BeginDate DATETIME NOT NULL,
+                      EndDate DATETIME,
+                      id INTEGER NOT NULL,
+                      customerID INTEGER NOT NULL,
+                      addressID INTEGER NOT NULL,
+                      phone VARCHAR(10) NOT NULL,
+                      creationDate DATETIME NOT NULL,
+                      statusCode VARCHAR(1) NOT NULL
+                    );""";
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Orders_AI_Hist AFTER INSERT ON orders FOR EACH ROW
+                BEGIN
+                  INSERT INTO H_orders VALUES(NULL, NOW(), NULL, NEW.id, NEW.customerID, NEW.addressID, NEW.phone, NEW.creationDate, NEW.statusCode);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Orders_AU_Hist AFTER UPDATE ON orders FOR EACH ROW
+                BEGIN
+                  UPDATE H_orders SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                  
+                  INSERT INTO H_orders VALUES(NULL, NOW(), NULL, NEW.id, NEW.customerID, NEW.addressID, NEW.phone, NEW.creationDate, NEW.statusCode);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER Orders_AD_Hist AFTER DELETE ON orders FOR EACH ROW
+                BEGIN
+                  UPDATE H_orders SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                END
+                """;
+        statement.execute(mysql);
+
+        //////////////////// orderedProducts ////////////////////
+
+        mysql = """
+                    CREATE TABLE H_orderedProducts (
+                      UID INTEGER AUTO_INCREMENT NOT NULL PRIMARY KEY,
+                      BeginDate DATETIME NOT NULL,
+                      EndDate DATETIME,
+                      id INTEGER NOT NULL,
+                      orderID INTEGER NOT NULL,
+                      productID INTEGER NOT NULL,
+                      quantity INTEGER NOT NULL
+                    );""";
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER OrderedProducts_AI_Hist AFTER INSERT ON orderedProducts FOR EACH ROW
+                BEGIN
+                  INSERT INTO H_orderedProducts VALUES(NULL, NOW(), NULL, NEW.id, NEW.orderID, NEW.productID, NEW.quantity);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER OrderedProducts_AU_Hist AFTER UPDATE ON orderedProducts FOR EACH ROW
+                BEGIN
+                  UPDATE H_orderedProducts SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                  
+                  INSERT INTO H_orderedProducts VALUES(NULL, NOW(), NULL, NEW.id, NEW.orderID, NEW.productID, NEW.quantity);
+                END
+                """;
+        statement.execute(mysql);
+
+        mysql = """
+                CREATE TRIGGER OrderedProducts_AD_Hist AFTER DELETE ON orderedProducts FOR EACH ROW
+                BEGIN
+                  UPDATE H_orderedProducts SET EndDate = NOW()
+                  WHERE id = OLD.id AND EndDate IS NULL;
+                END
+                """;
+        statement.execute(mysql);
     }
 
     public static void showDataBase() {
@@ -316,8 +560,8 @@ public class MySQLdb {
         uploadAddress("RU", "Moscow", "Ilinka 13");
         uploadAddress("KP", "Pyongyang", "Sungri Street");
 
-        uploadCustomer("JustSasko", "thePassword", "Alexander", "Ivanov", 1);
-        uploadCustomer("teacherMaximus", "Stefy<3", "Momchil", "Todorov", 1);
+        uploadCustomer("JustSasuko", "thePassword", "Alexander", "Ivanov", 1);
+        uploadCustomer("teacherMaximus", "Steffy<3", "Momchil", "Todorov", 1);
         uploadCustomer("rocketMan", "boomRocket", "Kim", "Jong-un", 5);
 
         uploadStatus("O", "OPEN");
@@ -338,6 +582,7 @@ public class MySQLdb {
         uploadProduct("Green pen", 2, 20, 0.1, "P", "for principals");
         uploadProduct("Samsung S3 mini", 200, 5, 0.330, "PH", "Black Samsung S3 mini");
         uploadProduct("Nigga dad", 1000, 2, 65, "OTH", "Best workers");
+        uploadProduct("Red person", 2000, 1, 60, "OTH", "Intelligent workers");
     }
 
     public static void uploadCoutry(final String countryCode, final String countryName,
@@ -465,8 +710,8 @@ public class MySQLdb {
         }
     }
 
-    public static void uploadOrder(final int customerID, final int addressID, final String phone,
-                                   final String statusCode) {
+    public static int uploadOrder(final int customerID, final int addressID, final String phone) {
+        int orderID = -1;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             connect = DriverManager.getConnection(url, username, password);
@@ -475,18 +720,53 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            String mysql = "INSERT INTO orders (customerID, addressID, phone, statusCode) VALUES (?, ?, ?, ?)";
+            String mysql = "SELECT createOrder(?, ?, ?)";
             preparedStatement = connect.prepareStatement(mysql);
 
             preparedStatement.setInt(1, customerID);
             preparedStatement.setInt(2, addressID);
             preparedStatement.setString(3, phone);
-            preparedStatement.setString(4, statusCode);
 
-            preparedStatement.executeUpdate();
+            resultSet = preparedStatement.executeQuery();
+            System.out.println("order Created");
+
+            while (resultSet.next()) {
+                orderID = resultSet.getInt(1);
+            }
+            System.out.println("really");
+
             connect.commit();
+            System.out.println("really really");
         } catch (Exception e) {
             System.out.println("Upload Order exception: " + e);
+        } finally {
+            close();
+        }
+        return orderID;
+    }
+
+    public static void uploadOrderedProduct(final int orderID, final int productID, final int quantity) {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            connect = DriverManager.getConnection(url, username, password);
+
+            connect.setAutoCommit(false);
+
+            statement = connect.createStatement();
+
+            String mysql = "INSERT INTO orderedProducts (orderID, productID, quantity) VALUES (?, ?, ?)";
+            preparedStatement = connect.prepareStatement(mysql);
+
+            preparedStatement.setInt(1, orderID);
+            preparedStatement.setInt(2, productID);
+            preparedStatement.setInt(3, quantity);
+
+            preparedStatement.executeUpdate();
+            System.out.println("allowed");
+
+            connect.commit();
+        } catch (Exception e) {
+            System.out.println("Upload Order Products exception: " + e);
         } finally {
             close();
         }
@@ -722,8 +1002,6 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            System.out.println("?");
-
             String mysql = """
                     SELECT *
                     FROM customers
@@ -744,6 +1022,8 @@ public class MySQLdb {
             }
 
             connect.commit();
+
+            System.out.println("load customer success\n");
         } catch (Exception e) {
             System.out.println("Load Customer exception: " + e);
         } finally {
@@ -867,11 +1147,11 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            System.out.println("?");
+            System.out.println("edit product");
 
             String mysql = """
                     UPDATE products
-                    SET products.name = ?, products.price = ?, products.quantity = ?, products.weight = ?, products.categoryCode, products.info = ?
+                    SET products.name = ?, products.price = ?, products.quantity = ?, products.weight = ?, products.categoryCode = ?, products.info = ?
                     WHERE products.id = ?;
                     """;
             preparedStatement = connect.prepareStatement(mysql);
@@ -904,7 +1184,8 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            System.out.println("?");
+            System.out.println("low price: " + lowPrice);
+            System.out.println("high price: " + highPrice);
 
             String mysql = _makeSQLforFilerProducts(lowPrice, highPrice, lowQuantity, highQuantity, lowWeight, highWeight,
                     categoryCode);
@@ -948,7 +1229,7 @@ public class MySQLdb {
         boolean moreThanOne = false;
 
         String result = """
-                SELECT products.name, products.price, products.quantity, products.weight, categories.code, products.info
+                SELECT products.name, products.price, products.quantity, products.weight, categories.name, products.info
                 FROM products
                 LEFT JOIN categories
                 ON products.categoryCode = categories.code
@@ -979,7 +1260,6 @@ public class MySQLdb {
             if (moreThanOne) {
                 result += " AND";
             }
-            moreThanOne = true;
             result += " products.categoryCode = ?";
         }
 
@@ -1015,11 +1295,10 @@ public class MySQLdb {
 
         if (!(categoryCode.equals("--"))) {
             prep.setString(position, categoryCode);
-            position++;
         }
     }
 
-    public static void searchProducts(final String search) {
+    public static void searchProducts(String search) {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             connect = DriverManager.getConnection(url, username, password);
@@ -1028,18 +1307,19 @@ public class MySQLdb {
 
             statement = connect.createStatement();
 
-            System.out.println("?");
+            System.out.println("search: " + search);
 
             String mysql = """
-                    SELECT products.name, products.price, products.quantity, products.weight, category.code, products.info
+                    SELECT products.name, products.price, products.quantity, products.weight, categories.name, products.info
                     FROM products
-                    LEFT JOIN category
-                    ON products.categoryCode = category.code
-                    WHERE products.name LIKE '%?%' OR products.info LIKE '%?%';
+                    LEFT JOIN categories
+                    ON products.categoryCode = categories.code
+                    WHERE products.name LIKE ? OR products.info LIKE ?;
                     """;
 
             preparedStatement = connect.prepareStatement(mysql);
 
+            search = "%" + search + "%";
             preparedStatement.setString(1, search);
             preparedStatement.setString(2, search);
 
@@ -1050,7 +1330,7 @@ public class MySQLdb {
                 double price = resultSet.getDouble("price");
                 int quantity = resultSet.getInt("quantity");
                 double weight = resultSet.getDouble("weight");
-                String category = resultSet.getString("category.name");
+                String category = resultSet.getString("categories.name");
                 String info = resultSet.getString("info");
 
                 System.out.println("name: " + name);
@@ -1161,6 +1441,52 @@ public class MySQLdb {
         }
 
         return result;
+    }
+
+    public static void showTurnoverForPeriod(final Date startDate, final Date endDate) {
+        double result = 0;
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            connect = DriverManager.getConnection(url, username, password);
+
+            connect.setAutoCommit(false);
+
+            statement = connect.createStatement();
+
+            System.out.println("showTurnover");
+
+            String mysql = """
+                    SELECT products.id, products.price, SUM(H_orderedProducts.quantity)
+                    FROM H_orderedProducts
+                    LEFT JOIN products
+                    ON H_orderedProducts.productID = products.id
+                    WHERE H_orderedProducts.BeginDate <= ? AND
+                    (H_orderedProducts.EndDate IS NULL OR H_orderedProducts.EndDate > ?)
+                    GROUP BY products.id;
+                    """;
+
+            preparedStatement = connect.prepareStatement(mysql);
+
+            preparedStatement.setDate(1, endDate);
+            preparedStatement.setDate(2, startDate);
+
+            resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                Double price = resultSet.getDouble("price");
+                int quantity = resultSet.getInt("SUM(H_orderedProducts.quantity)");
+
+                result += price * quantity;
+            }
+
+            System.out.println("Turnover: " + result);
+
+            connect.commit();
+        } catch (Exception e) {
+            System.out.println("Show turnover exception: " + e);
+        } finally {
+            close();
+        }
     }
 
     private static void close() {

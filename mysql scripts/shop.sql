@@ -43,7 +43,6 @@ CREATE TABLE products (
     quantity INTEGER NOT NULL,
     weight NUMERIC(6,3) NOT NULL,
     categoryCode VARCHAR(3) NOT NULL,
-    colorCode VARCHAR(3) NOT NULL,
     info VARCHAR(200),
     FOREIGN KEY(categoryCode) REFERENCES categories(code) ON DELETE CASCADE
 );
@@ -60,6 +59,7 @@ CREATE TABLE orders (
     customerID INTEGER NOT NULL,
     addressID INTEGER NOT NULL,
     phone VARCHAR(10) NOT NULL,
+    creationDate DATETIME NOT NULL,
     statusCode VARCHAR(1) NOT NULL,
     FOREIGN KEY(customerID) REFERENCES customers(id) ON DELETE CASCADE,
     FOREIGN KEY(addressID) REFERENCES addresses(id),
